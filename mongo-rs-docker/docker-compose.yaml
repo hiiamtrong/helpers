@@ -1,0 +1,18 @@
+version: '3.5'
+services:
+  mongo:
+    image: mongo:latest
+    container_name: mongo-replica
+    env_file: .env
+    ports:
+      - ${MONGO_PORT}:27017
+    restart: always
+
+    volumes:
+      - ./data/:/data/db
+      - ./keyfile:/keyfile
+    healthcheck:
+      test: $$(echo "rs.initiate({_id:'${MONGO_REPLICA_SET_NAME}',members:[{_id:0, host:'${MONGO_HOST}:${MONGO_PORT}'}]}).ok || rs.status().ok" | mongosh -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
+    command: '--bind_ip_all --keyFile /keyfile --replSet ${MONGO_REPLICA_SET_NAME}'
