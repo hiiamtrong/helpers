@@ -1,0 +1,62 @@
+version: '3'
+services:
+  cardano_zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    container_name: cardano_zookeeper
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - cardano_zookeeper:/var/lib/zookeeper/data
+    networks:
+      - cardano-kafka-net
+
+  cardano_kafka:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: cardano_kafka
+    restart: always
+    ports:
+      # To learn about configuring Kafka for access across networks see
+      # https://www.confluent.io/blog/kafka-client-cannot-connect-to-broker-on-aws-on-docker-etc/
+      - "${KAFKA_PORT}:9092"
+    depends_on:
+      - cardano_zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'cardano_zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_INTERNAL:PLAINTEXT,LISTENER_EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: LISTENER_EXTERNAL://${KAFKA_HOST}:${KAFKA_PORT},LISTENER_INTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_EXTERNAL://${KAFKA_HOST}:${KAFKA_PORT},LISTENER_INTERNAL://cardano_kafka:29092,
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+    volumes:
+      - cardano_kafka:/var/lib/kafka/data
+    networks:
+      - cardano-kafka-net
+
+  cardano_kafka_ui:
+    container_name: cardano_kafka_ui
+    image: provectuslabs/kafka-ui:latest
+    restart: always
+    ports:
+      - 8080:8080
+    depends_on:
+      - cardano_kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: cardano_kafka:29092
+      AUTH_TYPE: "LOGIN_FORM"
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD: pass
+    networks:
+      - cardano-kafka-net
+networks:
+  cardano-kafka-net:
+
+
+volumes:
+  cardano_zookeeper:
+  cardano_kafka:
