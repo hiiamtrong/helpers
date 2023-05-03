@@ -1,0 +1,49 @@
+version: '3'
+
+networks:
+  cardano-redis-net:
+
+
+services:
+  cardano_redis_master:
+    image: 'bitnami/redis:latest'
+    environment:
+      - REDIS_REPLICATION_MODE=master
+      - REDIS_PASSWORD=${REDIS_MASTER_PASSWORD:-str0ng_passw0rd}
+    restart: always
+    networks:
+      - cardano-redis-net
+    ports:
+      - ${EXTERNAL_REDIS_MASTER_PORT:-6379}:6379
+
+  cardano_redis_slave:
+    image: 'bitnami/redis:latest'
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=cardano_redis_master
+      - REDIS_MASTER_PASSWORD=${REDIS_MASTER_PASSWORD:-str0ng_passw0rd}
+      - REDIS_PASSWORD=${REDIS_SLAVE_PASSWORD:-str0ng_passw0rd}
+    restart: always
+    ports:
+      - ${EXTERNAL_REDIS_SLAVE_PORT:-6380}:6379
+    depends_on:
+      - cardano_redis_master
+    networks:
+      - cardano-redis-net
+
+  cardano_redis_sentinel:
+    image: 'bitnami/redis-sentinel:latest'
+    environment:
+      - REDIS_MASTER_PASSWORD=${REDIS_MASTER_PASSWORD:-str0ng_passw0rd}
+      - REDIS_MASTER_SET=${REDIS_MASTER_SET:-mymaster}
+      - REDIS_SENTINEL_PASSWORD=${REDIS_SENTINEL_PASSWORD:-str0ng_passw0rd}
+      - REDIS_MASTER_HOST=cardano_redis_master
+      - REDIS_MASTER_PORT_NUMBER=6379
+    restart: always
+    depends_on:
+      - cardano_redis_master
+      - cardano_redis_slave
+    ports:
+      - ${EXTERNAL_REDIS_SENTINEL_PORT}:26379
+    networks:
+      - cardano-redis-net
